@@ -301,12 +301,27 @@ export default function ChatClient({ character }: { character: Character }) {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-chat-bg">
+    <div className="flex flex-col h-screen relative">
+      {/* Background */}
+      <div
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url(/bg.jpeg)" }}
+      />
+      <div className="fixed inset-0 bg-black/50" />
+
       {/* Header */}
-      <header className="flex items-center gap-3 px-4 py-3 bg-card-bg border-b border-border">
+      <header
+        className="relative z-10 flex items-center gap-3 px-4 py-3"
+        style={{
+          background: "rgba(0,0,0,0.4)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+        }}
+      >
         <Link
           href="/"
-          className="text-gray-400 hover:text-white transition-colors"
+          className="text-white/60 hover:text-white transition-colors"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -323,7 +338,10 @@ export default function ChatClient({ character }: { character: Character }) {
             />
           </svg>
         </Link>
-        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+        <div
+          className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0"
+          style={{ border: "2px solid rgba(255,255,255,0.2)" }}
+        >
           <Image
             src={character.image}
             alt={character.name}
@@ -333,24 +351,32 @@ export default function ChatClient({ character }: { character: Character }) {
           />
         </div>
         <div className="flex-1">
-          <h1 className="font-bold text-sm">{character.name}</h1>
-          <p className="text-xs text-gray-500">{character.personality}</p>
+          <h1
+            className="font-bold text-sm text-white"
+            style={{ fontFamily: "var(--font-satoshi)" }}
+          >
+            {character.name}
+          </h1>
+          <p className="text-xs text-white/50">{character.personality}</p>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-xs text-green-500">접속중</span>
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          <span className="text-xs text-green-400/80">접속중</span>
         </div>
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div className="relative z-10 flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.map((msg, i) => (
           <div
             key={i}
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             {msg.role === "assistant" && (
-              <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0 mt-1">
+              <div
+                className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0 mt-1"
+                style={{ border: "1px solid rgba(255,255,255,0.15)" }}
+              >
                 <Image
                   src={character.image}
                   alt={character.name}
@@ -362,10 +388,25 @@ export default function ChatClient({ character }: { character: Character }) {
             )}
             <div
               className={`max-w-[75%] rounded-2xl text-sm leading-relaxed overflow-hidden ${
-                msg.role === "user"
-                  ? "bg-bubble-user text-white rounded-br-sm"
-                  : "bg-bubble-ai border border-border text-gray-200 rounded-bl-sm"
+                msg.role === "user" ? "rounded-br-sm" : "rounded-bl-sm"
               }`}
+              style={
+                msg.role === "user"
+                  ? {
+                      background: "rgba(255,255,255,0.15)",
+                      backdropFilter: "blur(12px)",
+                      WebkitBackdropFilter: "blur(12px)",
+                      border: "1px solid rgba(255,255,255,0.2)",
+                      color: "#fff",
+                    }
+                  : {
+                      background: "rgba(255,255,255,0.08)",
+                      backdropFilter: "blur(12px)",
+                      WebkitBackdropFilter: "blur(12px)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "rgba(255,255,255,0.9)",
+                    }
+              }
             >
               {msg.image && (
                 <button
@@ -412,7 +453,10 @@ export default function ChatClient({ character }: { character: Character }) {
         {/* Typing indicator */}
         {isTyping && (
           <div className="flex justify-start">
-            <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0 mt-1">
+            <div
+              className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0 mt-1"
+              style={{ border: "1px solid rgba(255,255,255,0.15)" }}
+            >
               <Image
                 src={character.image}
                 alt={character.name}
@@ -421,10 +465,17 @@ export default function ChatClient({ character }: { character: Character }) {
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="bg-bubble-ai border border-border rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1.5">
-              <span className="typing-dot w-2 h-2 rounded-full bg-gray-400" />
-              <span className="typing-dot w-2 h-2 rounded-full bg-gray-400" />
-              <span className="typing-dot w-2 h-2 rounded-full bg-gray-400" />
+            <div
+              className="rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1.5"
+              style={{
+                background: "rgba(255,255,255,0.08)",
+                backdropFilter: "blur(12px)",
+                border: "1px solid rgba(255,255,255,0.1)",
+              }}
+            >
+              <span className="typing-dot w-2 h-2 rounded-full bg-white/40" />
+              <span className="typing-dot w-2 h-2 rounded-full bg-white/40" />
+              <span className="typing-dot w-2 h-2 rounded-full bg-white/40" />
             </div>
           </div>
         )}
@@ -432,12 +483,24 @@ export default function ChatClient({ character }: { character: Character }) {
       </div>
 
       {/* Recommended message */}
-      <div className="px-4 pt-2 bg-card-bg border-t border-border">
+      <div
+        className="relative z-10 px-4 pt-2"
+        style={{
+          background: "rgba(0,0,0,0.3)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          borderTop: "1px solid rgba(255,255,255,0.08)",
+        }}
+      >
         <div className="max-w-3xl mx-auto">
           <button
             onClick={handlePhotoRequest}
             disabled={isTyping}
-            className="text-xs px-3 py-1.5 rounded-full border border-accent text-accent hover:bg-accent hover:text-white transition-colors disabled:opacity-30"
+            className="text-xs px-3 py-1.5 rounded-full transition-colors disabled:opacity-30"
+            style={{
+              border: "1px solid rgba(255,255,255,0.2)",
+              color: "rgba(255,255,255,0.7)",
+            }}
           >
             사진 보내줘
           </button>
@@ -445,7 +508,14 @@ export default function ChatClient({ character }: { character: Character }) {
       </div>
 
       {/* Input */}
-      <div className="px-4 py-3 bg-card-bg">
+      <div
+        className="relative z-10 px-4 py-3"
+        style={{
+          background: "rgba(0,0,0,0.3)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+        }}
+      >
         <div className="flex items-center gap-2 max-w-3xl mx-auto">
           <input
             ref={inputRef}
@@ -454,16 +524,25 @@ export default function ChatClient({ character }: { character: Character }) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && handleSend()}
             placeholder={`${character.name}에게 메시지 보내기...`}
-            className="flex-1 bg-input-bg border border-border rounded-full px-4 py-2.5 text-sm outline-none focus:border-accent transition-colors placeholder-gray-500"
+            className="flex-1 rounded-full px-4 py-2.5 text-sm outline-none transition-colors text-white placeholder-white/40"
+            style={{
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              fontFamily: "var(--font-satoshi)",
+            }}
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isTyping}
-            className="w-10 h-10 rounded-full bg-accent hover:bg-accent-light disabled:opacity-30 disabled:hover:bg-accent transition-colors flex items-center justify-center"
+            className="w-10 h-10 rounded-full disabled:opacity-30 transition-all duration-200 flex items-center justify-center hover:scale-105"
+            style={{
+              background: "rgba(255,255,255,0.95)",
+              color: "#1a1a1a",
+            }}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 text-white"
+              className="h-5 w-5"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -472,19 +551,32 @@ export default function ChatClient({ character }: { character: Character }) {
           </button>
         </div>
       </div>
+
       {/* Paywall Modal */}
       {showPaywall && (
         <div
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.7)" }}
           onClick={() => setShowPaywall(false)}
         >
           <div
-            className="bg-card-bg rounded-2xl p-6 max-w-sm w-full text-center"
+            className="rounded-2xl p-6 max-w-sm w-full text-center"
+            style={{
+              background: "rgba(20,20,20,0.9)",
+              backdropFilter: "blur(40px)",
+              WebkitBackdropFilter: "blur(40px)",
+              border: "1px solid rgba(255,255,255,0.12)",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-4xl mb-3">🔒</div>
-            <h2 className="text-lg font-bold mb-2">프리미엄 콘텐츠</h2>
-            <p className="text-sm text-gray-400 mb-4">
+            <h2
+              className="text-lg font-bold mb-2 text-white"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              프리미엄 콘텐츠
+            </h2>
+            <p className="text-sm text-white/50 mb-4" style={{ fontFamily: "var(--font-satoshi)" }}>
               사진을 보려면 프리미엄 구독이 필요해요
             </p>
             <button
@@ -492,12 +584,20 @@ export default function ChatClient({ character }: { character: Character }) {
                 await handleCheckout();
               }}
               disabled={isStartingCheckout || isCheckingPremium}
-              className="w-full py-3 rounded-full bg-accent hover:bg-accent-light disabled:opacity-40 text-white font-semibold transition-colors"
+              className="w-full py-3 rounded-full text-white font-semibold transition-all duration-200 disabled:opacity-40 hover:scale-[1.02]"
+              style={{
+                background: "rgba(255,255,255,0.95)",
+                color: "#1a1a1a",
+                fontFamily: "var(--font-satoshi)",
+              }}
             >
               {isStartingCheckout ? "결제 준비 중..." : "잠금 해제 - ₩4,900"}
             </button>
-            <div className="mt-4 border-t border-border pt-4 text-left">
-              <p className="text-xs text-gray-400 mb-2">
+            <div
+              className="mt-4 pt-4 text-left"
+              style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}
+            >
+              <p className="text-xs text-white/40 mb-2">
                 다른 브라우저나 기기에서는 결제한 이메일로 복원할 수 있어요
               </p>
               <input
@@ -505,24 +605,29 @@ export default function ChatClient({ character }: { character: Character }) {
                 value={restoreEmail}
                 onChange={(e) => setRestoreEmail(e.target.value)}
                 placeholder="결제에 사용한 이메일"
-                className="w-full bg-input-bg border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-accent transition-colors placeholder-gray-500"
+                className="w-full rounded-xl px-3 py-2 text-sm outline-none transition-colors text-white placeholder-white/40"
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                }}
               />
               <button
                 onClick={handleRestorePurchase}
                 disabled={!restoreEmail.trim() || isRestoring}
-                className="mt-2 w-full py-2.5 rounded-xl border border-border text-sm font-medium text-gray-200 hover:border-accent hover:text-white disabled:opacity-40 transition-colors"
+                className="mt-2 w-full py-2.5 rounded-xl text-sm font-medium text-white/70 hover:text-white disabled:opacity-40 transition-colors"
+                style={{ border: "1px solid rgba(255,255,255,0.15)" }}
               >
                 {isRestoring ? "복원 중..." : "구매 복원"}
               </button>
             </div>
             {premiumMessage && (
-              <p className="mt-3 text-xs text-center text-gray-400">
+              <p className="mt-3 text-xs text-center text-white/50">
                 {premiumMessage}
               </p>
             )}
             <button
               onClick={() => setShowPaywall(false)}
-              className="mt-3 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+              className="mt-3 text-sm text-white/40 hover:text-white/70 transition-colors"
             >
               나중에 할게
             </button>

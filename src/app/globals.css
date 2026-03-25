@@ -1,39 +1,35 @@
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap");
+@import url("https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap");
 @import "tailwindcss";
 
-:root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --card-bg: #1a1a2e;
-  --card-hover: #16213e;
-  --accent: #e94560;
-  --accent-light: #ff6b81;
-  --chat-bg: #0f0f23;
-  --bubble-user: #e94560;
-  --bubble-ai: #1a1a2e;
-  --input-bg: #1a1a2e;
-  --border: #2a2a4a;
+@theme inline {
+  --color-cream: #e0d8cb;
+  --color-ink: #111110;
+  --color-glass: rgba(255, 255, 255, 0.08);
+  --color-glass-border: rgba(255, 255, 255, 0.15);
+  --color-glass-strong: rgba(255, 255, 255, 0.95);
+  --color-bubble-user: rgba(255, 255, 255, 0.15);
+  --color-bubble-ai: rgba(255, 255, 255, 0.08);
+  --color-input-bg: rgba(255, 255, 255, 0.06);
+  --font-heading: "Montserrat", sans-serif;
+  --font-satoshi: "Satoshi", ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card-bg: var(--card-bg);
-  --color-card-hover: var(--card-hover);
-  --color-accent: var(--accent);
-  --color-accent-light: var(--accent-light);
-  --color-chat-bg: var(--chat-bg);
-  --color-bubble-user: var(--bubble-user);
-  --color-bubble-ai: var(--bubble-ai);
-  --color-input-bg: var(--input-bg);
-  --color-border: var(--border);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), sans-serif;
+  background: #000;
+  color: #fff;
+  font-family: var(--font-satoshi), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--color-ink);
+  color: var(--color-cream);
 }
 
 /* Custom scrollbar */
@@ -41,10 +37,10 @@ body {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 3px;
 }
 
@@ -61,4 +57,14 @@ body {
 }
 .typing-dot:nth-child(3) {
   animation-delay: 0.4s;
+}
+
+@keyframes pulse-cta {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+@keyframes fade-blur {
+  from { backdrop-filter: blur(0); opacity: 0; }
+  to { backdrop-filter: blur(12px); opacity: 1; }
 }

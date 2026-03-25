@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import { VibetorchInspector } from "@vibetorch/inspector";
 
 export const metadata: Metadata = {
   title: "ABGs : DM your favorite ABG",
@@ -34,13 +29,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="ko"
-      className={`${geistSans.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+    <html lang="ko" className="h-full antialiased">
+      <body className="min-h-full flex flex-col">
         {children}
         <Analytics />
+
+        <VibetorchInspector />
       </body>
     </html>
   );
