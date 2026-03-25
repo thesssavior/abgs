@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCharacter } from "@/lib/characters";
+import { getCharacterSystemPrompt } from "@/lib/character-prompts";
 import OpenAI from "openai";
 
 let _openai: OpenAI;
@@ -11,9 +12,14 @@ function openai() {
 export async function POST(req: NextRequest) {
   const { characterId, messages } = await req.json();
   const character = getCharacter(characterId);
+  const systemPrompt = character ? getCharacterSystemPrompt(character.id) : null;
 
   if (!character) {
     return NextResponse.json({ error: "캐릭터를 찾을 수 없어요" }, { status: 404 });
+  }
+
+  if (!systemPrompt) {
+    return NextResponse.json({ error: "캐릭터 설정을 찾을 수 없어요" }, { status: 500 });
   }
 
   if (!process.env.OPENAI_API_KEY) {
@@ -27,7 +33,7 @@ export async function POST(req: NextRequest) {
       model: "gpt-4o",
       max_tokens: 256,
       messages: [
-        { role: "system", content: character.systemPrompt },
+        { role: "system", content: systemPrompt },
         ...messages.map((m: { role: string; content: string }) => ({
           role: m.role as "user" | "assistant",
           content: m.content,
