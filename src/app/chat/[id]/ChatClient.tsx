@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { trimChatMessagesForModel } from "@/lib/chat-payload";
 import type { Character } from "@/lib/characters";
 
 interface Message {
@@ -142,26 +143,40 @@ export default function ChatClient({ character }: { character: Character }) {
     setIsTyping(true);
 
     try {
+      const requestMessages = trimChatMessagesForModel(
+        newMessages.map((message) => ({
+          role: message.role,
+          content: message.content,
+        }))
+      );
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           characterId: character.id,
-          messages: newMessages,
+          messages: requestMessages,
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || typeof data.message !== "string") {
+        throw new Error(data.error || "메시지를 처리하지 못했어. 다시 보내줘~");
+      }
+
       setMessages([
         ...newMessages,
         { role: "assistant", content: data.message },
       ]);
-    } catch {
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "앗 잠깐 끊겼어ㅠㅠ 다시 보내줘~";
       setMessages([
         ...newMessages,
         {
           role: "assistant",
-          content: "앗 잠깐 끊겼어ㅠㅠ 다시 보내줘~",
+          content: message,
         },
       ]);
     } finally {
