@@ -123,7 +123,7 @@ export default function ChatClient({ character }: { character: Character }) {
         {
           role: "assistant",
           content: "이거 너만 보는 거다? ㅎㅎ",
-          image: "/img2.png",
+          image: "/img2.jpg",
           blurred: !hasPaid,
         },
       ]);
@@ -242,10 +242,12 @@ export default function ChatClient({ character }: { character: Character }) {
                   className="relative block"
                   onClick={() => msg.blurred && setShowPaywall(true)}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={msg.image}
                     alt="사진"
+                    width={352}
+                    height={467}
+                    sizes="192px"
                     className={`w-48 h-auto object-cover rounded-2xl ${msg.blurred ? "blur-xl" : ""}`}
                   />
                   {msg.blurred && (
