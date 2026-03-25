@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCharacter } from "@/lib/characters";
 import { getCharacterSystemPrompt } from "@/lib/character-prompts";
+import {
+  parseChatRequest,
+  trimChatMessagesForModel,
+} from "@/lib/chat-payload";
 import OpenAI from "openai";
 
 let _openai: OpenAI;
@@ -10,7 +14,18 @@ function openai() {
 }
 
 export async function POST(req: NextRequest) {
-  const { characterId, messages } = await req.json();
+  const body = await req.json().catch(() => null);
+  const parsed = parseChatRequest(body);
+
+  if (!parsed.ok) {
+    return NextResponse.json(
+      { error: parsed.error },
+      { status: parsed.status }
+    );
+  }
+
+  const { characterId, messages } = parsed.data;
+  const modelMessages = trimChatMessagesForModel(messages);
   const character = getCharacter(characterId);
   const systemPrompt = character ? getCharacterSystemPrompt(character.id) : null;
 
@@ -24,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({
-      message: getFallbackResponse(character.id, messages.length),
+      message: getFallbackResponse(character.id, modelMessages.length),
     });
   }
 
@@ -34,10 +49,7 @@ export async function POST(req: NextRequest) {
       max_tokens: 256,
       messages: [
         { role: "system", content: systemPrompt },
-        ...messages.map((m: { role: string; content: string }) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
+        ...modelMessages,
       ],
     });
 
@@ -47,11 +59,11 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      message: getFallbackResponse(character.id, messages.length),
+      message: getFallbackResponse(character.id, modelMessages.length),
     });
   } catch {
     return NextResponse.json({
-      message: getFallbackResponse(character.id, messages.length),
+      message: getFallbackResponse(character.id, modelMessages.length),
     });
   }
 }

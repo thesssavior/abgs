@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { trimChatMessagesForModel } from "@/lib/chat-payload";
 import type { Character } from "@/lib/characters";
 
 interface Message {
@@ -17,17 +18,20 @@ function storageKey(charId: string) {
   return `chat_messages_${charId}`;
 }
 
-function paidKey(charId: string) {
-  return `chat_paid_${charId}`;
-}
-
 export default function ChatClient({ character }: { character: Character }) {
   const searchParams = useSearchParams();
+  const sessionId = searchParams.get("session_id");
+  const checkoutStatus = searchParams.get("checkout");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [hasPaid, setHasPaid] = useState(false);
+  const [isCheckingPremium, setIsCheckingPremium] = useState(true);
+  const [isStartingCheckout, setIsStartingCheckout] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreEmail, setRestoreEmail] = useState("");
+  const [premiumMessage, setPremiumMessage] = useState<string | null>(null);
   const initialized = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -54,35 +58,25 @@ export default function ChatClient({ character }: { character: Character }) {
     inputRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    if (!hasPaid) return;
+    setMessages((current) =>
+      current.map((message) =>
+        message.blurred ? { ...message, blurred: false } : message
+      )
+    );
+  }, [hasPaid]);
+
   // Initialize: restore from localStorage or show greeting
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
 
-    // Check paid status
-    const paid = localStorage.getItem(paidKey(character.id)) === "true";
-    setHasPaid(paid);
-
-    // Check if returning from successful payment
-    const isSuccess = searchParams.get("success") === "1";
-    if (isSuccess && !paid) {
-      localStorage.setItem(paidKey(character.id), "true");
-      setHasPaid(true);
-    }
-
-    const shouldUnblur = paid || isSuccess;
-
     // Restore saved messages
     const saved = localStorage.getItem(storageKey(character.id));
     if (saved) {
       try {
-        let restored: Message[] = JSON.parse(saved);
-        if (shouldUnblur) {
-          restored = restored.map((m) =>
-            m.blurred ? { ...m, blurred: false } : m
-          );
-        }
-        setMessages(restored);
+        setMessages(JSON.parse(saved));
         return;
       } catch {
         // fall through to greeting
@@ -108,7 +102,69 @@ export default function ChatClient({ character }: { character: Character }) {
       setIsTyping(false);
     }, 1000);
     return () => clearTimeout(timer);
-  }, [character, searchParams]);
+  }, [character]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function syncPremiumStatus() {
+      setIsCheckingPremium(true);
+
+      try {
+        if (sessionId) {
+          const claimRes = await fetch("/api/checkout/claim", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              characterId: character.id,
+              sessionId,
+            }),
+          });
+          const claimData = await claimRes.json().catch(() => ({}));
+
+          if (!active) return;
+
+          if (claimRes.ok && claimData.hasPaid) {
+            setHasPaid(true);
+            setShowPaywall(false);
+            setPremiumMessage("결제가 확인됐어요. 프리미엄이 열렸어.");
+          } else if (claimData.error) {
+            setPremiumMessage(claimData.error);
+          }
+
+          clearCheckoutParams();
+        } else if (checkoutStatus === "canceled") {
+          setPremiumMessage("결제가 취소됐어요. 준비되면 다시 잠금 해제해줘.");
+          clearCheckoutParams();
+        }
+
+        const res = await fetch(
+          `/api/premium?characterId=${encodeURIComponent(character.id)}`,
+          {
+            cache: "no-store",
+          }
+        );
+        const data = await res.json().catch(() => ({}));
+
+        if (!active) return;
+        setHasPaid(Boolean(data.hasPaid));
+      } catch {
+        if (active) {
+          setPremiumMessage("프리미엄 상태를 확인하지 못했어. 잠시 후 다시 시도해줘.");
+        }
+      } finally {
+        if (active) {
+          setIsCheckingPremium(false);
+        }
+      }
+    }
+
+    void syncPremiumStatus();
+
+    return () => {
+      active = false;
+    };
+  }, [character.id, checkoutStatus, sessionId]);
 
   function handlePhotoRequest() {
     if (isTyping) return;
@@ -142,30 +198,105 @@ export default function ChatClient({ character }: { character: Character }) {
     setIsTyping(true);
 
     try {
+      const requestMessages = trimChatMessagesForModel(
+        newMessages.map((message) => ({
+          role: message.role,
+          content: message.content,
+        }))
+      );
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           characterId: character.id,
-          messages: newMessages,
+          messages: requestMessages,
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || typeof data.message !== "string") {
+        throw new Error(data.error || "메시지를 처리하지 못했어. 다시 보내줘~");
+      }
+
       setMessages([
         ...newMessages,
         { role: "assistant", content: data.message },
       ]);
-    } catch {
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "앗 잠깐 끊겼어ㅠㅠ 다시 보내줘~";
       setMessages([
         ...newMessages,
         {
           role: "assistant",
-          content: "앗 잠깐 끊겼어ㅠㅠ 다시 보내줘~",
+          content: message,
         },
       ]);
     } finally {
       setIsTyping(false);
+    }
+  }
+
+  async function handleCheckout() {
+    if (isStartingCheckout) return;
+
+    setIsStartingCheckout(true);
+    setPremiumMessage(null);
+
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ characterId: character.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+
+      setPremiumMessage(data.error || "결제 화면을 열지 못했어. 잠시 후 다시 시도해줘.");
+    } catch {
+      setPremiumMessage("결제 화면을 열지 못했어. 잠시 후 다시 시도해줘.");
+    } finally {
+      setIsStartingCheckout(false);
+    }
+  }
+
+  async function handleRestorePurchase() {
+    const email = restoreEmail.trim();
+    if (!email || isRestoring) return;
+
+    setIsRestoring(true);
+    setPremiumMessage(null);
+
+    try {
+      const res = await fetch("/api/premium/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          characterId: character.id,
+          email,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.hasPaid) {
+        setHasPaid(true);
+        setShowPaywall(false);
+        setRestoreEmail("");
+        setPremiumMessage("구매 내역을 복원했어.");
+        return;
+      }
+
+      setPremiumMessage(data.error || "구매 내역을 복원하지 못했어.");
+    } catch {
+      setPremiumMessage("구매 내역을 복원하지 못했어.");
+    } finally {
+      setIsRestoring(false);
     }
   }
 
@@ -356,14 +487,37 @@ export default function ChatClient({ character }: { character: Character }) {
             </p>
             <button
               onClick={async () => {
-                const res = await fetch("/api/checkout", { method: "POST" });
-                const data = await res.json();
-                if (data.url) window.location.href = data.url;
+                await handleCheckout();
               }}
-              className="w-full py-3 rounded-full bg-accent hover:bg-accent-light text-white font-semibold transition-colors"
+              disabled={isStartingCheckout || isCheckingPremium}
+              className="w-full py-3 rounded-full bg-accent hover:bg-accent-light disabled:opacity-40 text-white font-semibold transition-colors"
             >
-              잠금 해제 - ₩4,900
+              {isStartingCheckout ? "결제 준비 중..." : "잠금 해제 - ₩4,900"}
             </button>
+            <div className="mt-4 border-t border-border pt-4 text-left">
+              <p className="text-xs text-gray-400 mb-2">
+                다른 브라우저나 기기에서는 결제한 이메일로 복원할 수 있어요
+              </p>
+              <input
+                type="email"
+                value={restoreEmail}
+                onChange={(e) => setRestoreEmail(e.target.value)}
+                placeholder="결제에 사용한 이메일"
+                className="w-full bg-input-bg border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-accent transition-colors placeholder-gray-500"
+              />
+              <button
+                onClick={handleRestorePurchase}
+                disabled={!restoreEmail.trim() || isRestoring}
+                className="mt-2 w-full py-2.5 rounded-xl border border-border text-sm font-medium text-gray-200 hover:border-accent hover:text-white disabled:opacity-40 transition-colors"
+              >
+                {isRestoring ? "복원 중..." : "구매 복원"}
+              </button>
+            </div>
+            {premiumMessage && (
+              <p className="mt-3 text-xs text-center text-gray-400">
+                {premiumMessage}
+              </p>
+            )}
             <button
               onClick={() => setShowPaywall(false)}
               className="mt-3 text-sm text-gray-500 hover:text-gray-300 transition-colors"
@@ -382,4 +536,13 @@ function getGreeting(char: Character): string {
     eunha: "안녕~ 나 은하야 ㅎㅎ 심심했는데 딱 왔네! 뭐하고 있었어?",
   };
   return greetings[char.id] || `안녕~ 나 ${char.name}이야. 같이 얘기하자~ 💕`;
+}
+
+function clearCheckoutParams() {
+  if (typeof window === "undefined") return;
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete("checkout");
+  url.searchParams.delete("session_id");
+  window.history.replaceState({}, "", url);
 }
