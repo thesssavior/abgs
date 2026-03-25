@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { trimChatMessagesForModel } from "@/lib/chat-payload";
 import type { Character } from "@/lib/characters";
 
 interface Message {
@@ -44,6 +43,9 @@ export default function ChatClient({ character }: { character: Character }) {
   const initialized = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const wsResolverRef = useRef<((text: string) => void) | null>(null);
+  const wsRejecterRef = useRef<((err: Error) => void) | null>(null);
 
   const saveMessages = useCallback(
     (msgs: Message[]) => {
@@ -66,6 +68,59 @@ export default function ChatClient({ character }: { character: Character }) {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Persistent WebSocket connection to Worker
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let dead = false;
+
+    async function connect() {
+      const chatSessionId = getOrCreateSessionId(character.id);
+      const res = await fetch(`/api/chat/ws?sessionId=${encodeURIComponent(chatSessionId)}`);
+      const data = await res.json().catch(() => null);
+      if (dead || !data?.url) return;
+
+      ws = new WebSocket(data.url);
+      wsRef.current = ws;
+
+      ws.addEventListener("message", (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === "reply" && msg.text && wsResolverRef.current) {
+            wsResolverRef.current(msg.text);
+            wsResolverRef.current = null;
+            wsRejecterRef.current = null;
+          } else if (msg.type === "typing") {
+            setIsTyping(msg.active);
+          } else if (msg.type === "error" && wsRejecterRef.current) {
+            wsRejecterRef.current(new Error(msg.message || "reply failed"));
+            wsResolverRef.current = null;
+            wsRejecterRef.current = null;
+          }
+        } catch { /* ignore */ }
+      });
+
+      ws.addEventListener("close", () => {
+        if (!dead) {
+          wsRef.current = null;
+          // Reconnect after 2s
+          setTimeout(() => { if (!dead) connect(); }, 2000);
+        }
+      });
+
+      ws.addEventListener("error", () => {
+        ws?.close();
+      });
+    }
+
+    connect();
+
+    return () => {
+      dead = true;
+      ws?.close();
+      wsRef.current = null;
+    };
+  }, [character.id]);
 
   useEffect(() => {
     if (!hasPaid) return;
@@ -207,30 +262,28 @@ export default function ChatClient({ character }: { character: Character }) {
     setIsTyping(true);
 
     try {
-      const requestMessages = trimChatMessagesForModel(
-        newMessages.map((message) => ({
-          role: message.role,
-          content: message.content,
-        }))
-      );
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          characterId: character.id,
-          messages: requestMessages,
-          sessionId: getOrCreateSessionId(character.id),
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || typeof data.message !== "string") {
-        throw new Error(data.error || "메시지를 처리하지 못했어. 다시 보내줘~");
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        throw new Error("연결이 끊겼어. 잠시 후 다시 보내줘~");
       }
+
+      const replyText = await new Promise<string>((resolve, reject) => {
+        wsResolverRef.current = resolve;
+        wsRejecterRef.current = reject;
+        ws.send(JSON.stringify({ type: "message", text }));
+        // Timeout
+        setTimeout(() => {
+          if (wsResolverRef.current === resolve) {
+            wsResolverRef.current = null;
+            wsRejecterRef.current = null;
+            reject(new Error("응답이 늦어지고 있어. 다시 보내줘~"));
+          }
+        }, 25_000);
+      });
 
       setMessages([
         ...newMessages,
-        { role: "assistant", content: data.message },
+        { role: "assistant", content: replyText },
       ]);
     } catch (error) {
       const message =

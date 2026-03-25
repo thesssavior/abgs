@@ -41,6 +41,12 @@ export async function POST(req: NextRequest) {
   if (!WS_URL || !WS_TOKEN) {
     return NextResponse.json({
       message: getFallbackResponse(character.id, messages.length),
+      _debug: {
+        hasWsUrl: !!WS_URL,
+        hasToken: !!WS_TOKEN,
+        wsUrlLen: WS_URL.length,
+        tokenLen: WS_TOKEN.length,
+      },
     });
   }
 
