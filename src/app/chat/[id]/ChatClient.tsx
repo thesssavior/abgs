@@ -18,6 +18,15 @@ function storageKey(charId: string) {
   return `chat_messages_${charId}`;
 }
 
+function getOrCreateSessionId(charId: string): string {
+  const key = `chat_session_${charId}`;
+  const existing = localStorage.getItem(key);
+  if (existing) return existing;
+  const id = `${charId}-${crypto.randomUUID()}`;
+  localStorage.setItem(key, id);
+  return id;
+}
+
 export default function ChatClient({ character }: { character: Character }) {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
@@ -178,8 +187,8 @@ export default function ChatClient({ character }: { character: Character }) {
         ...newMessages,
         {
           role: "assistant",
-          content: "이거 너만 보는 거다? ㅎㅎ",
-          image: "/img2.jpg",
+          content: "이거 너만 보는 거야 ㅎ",
+          image: "/yuna_card.png",
           blurred: !hasPaid,
         },
       ]);
@@ -210,6 +219,7 @@ export default function ChatClient({ character }: { character: Character }) {
         body: JSON.stringify({
           characterId: character.id,
           messages: requestMessages,
+          sessionId: getOrCreateSessionId(character.id),
         }),
       });
 
@@ -640,9 +650,9 @@ export default function ChatClient({ character }: { character: Character }) {
 
 function getGreeting(char: Character): string {
   const greetings: Record<string, string> = {
-    eunha: "안녕~ 나 은하야 ㅎㅎ 심심했는데 딱 왔네! 뭐하고 있었어?",
+    yuna: "어 왔네 ㅎㅎ 나 유나. 지금 편집실인데 심심해서 폰 봤거든",
   };
-  return greetings[char.id] || `안녕~ 나 ${char.name}이야. 같이 얘기하자~ 💕`;
+  return greetings[char.id] || `안녕~ 나 ${char.name}이야. 같이 얘기하자~`;
 }
 
 function clearCheckoutParams() {

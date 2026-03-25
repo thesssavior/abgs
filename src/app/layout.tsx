@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
-import { VibetorchInspector } from "@vibetorch/inspector";
 
 export const metadata: Metadata = {
   title: "ABGs : DM your favorite ABG",
@@ -33,8 +32,6 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         {children}
         <Analytics />
-
-        <VibetorchInspector />
       </body>
     </html>
   );

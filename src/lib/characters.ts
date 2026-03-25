@@ -12,16 +12,16 @@ export interface Character {
 
 export const characters: Character[] = [
   {
-    id: "eunha",
-    name: "은하",
-    age: 21,
-    tagline: "밤에 감성 터지는 감성소녀",
+    id: "yuna",
+    name: "유나",
+    age: 22,
+    tagline: "밤에 장난치는 영화과 여대생",
     description:
-      "서울 홍대에서 사진 찍고 카페 돌아다니는 걸 좋아하는 대학생. 새벽 감성에 약하고, 솔직한 대화를 좋아해요.",
-    personality: "솔직, 장난꾸러기, 다정, 센스쟁이",
-    image: "/eunha.jpg",
-    interests: ["카페투어", "사진", "음악", "새벽감성"],
-    openingImage: "/eunha_opening.jpg",
+      "건국대 영화과에서 밤새 편집하고 택시 타고 돌아다니는 대학생. 장난기 많고, 대담하고, 은근 로맨틱해요.",
+    personality: "장난꾸러기, 대담, 시네마틱, 플러팅",
+    image: "/yuna.webp",
+    interests: ["영화", "촬영", "심야택시", "보이스노트"],
+    openingImage: "/yuna_card.png",
   },
 ];
 

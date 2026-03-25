@@ -4,33 +4,6 @@ import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { characters } from "@/lib/characters";
 
-/* SVG filter for glass refraction distortion */
-function GlassDistortionFilter() {
-  return (
-    <svg width="0" height="0" style={{ position: "absolute" }}>
-      <defs>
-        <filter id="glass-distortion" x="-10%" y="-10%" width="120%" height="120%">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.008"
-            numOctaves={3}
-            seed={2}
-            result="noise"
-          />
-          <feGaussianBlur in="noise" stdDeviation="3" result="smoothNoise" />
-          <feDisplacementMap
-            in="SourceGraphic"
-            in2="smoothNoise"
-            scale={60}
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-        </filter>
-      </defs>
-    </svg>
-  );
-}
-
 export default function Home() {
   const [index, setIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
@@ -89,7 +62,6 @@ export default function Home() {
           touchAction: "none",
         }}
       >
-        <GlassDistortionFilter />
         {/* BG */}
         <img
           src="/bg.jpeg"
@@ -106,11 +78,37 @@ export default function Home() {
           style={{
             position: "absolute",
             inset: 0,
-            background: "rgba(0,0,0,0.35)",
+            background: "rgba(0,0,0,0.2)",
           }}
         />
 
-        {/* Header */}
+        {/* Persona image */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "85vw",
+            height: "80svh",
+            zIndex: 5,
+            pointerEvents: "none",
+          }}
+        >
+          <img
+            src={current.image}
+            alt={current.name}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              objectPosition: "bottom center",
+              transition: "opacity 0.4s ease",
+            }}
+          />
+        </div>
+
+        {/* Header — z-10 */}
         <div
           style={{
             position: "absolute",
@@ -121,7 +119,7 @@ export default function Home() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            zIndex: 5,
+            zIndex: 10,
           }}
         >
           <img
@@ -149,102 +147,74 @@ export default function Home() {
           </Link>
         </div>
 
-        {/* Headline */}
+        {/* Big headline — no glass, just text */}
         <div
           style={{
             position: "absolute",
-            top: "14vh",
-            left: 0,
-            right: 0,
-            textAlign: "center",
-            zIndex: 5,
+            top: "12vh",
+            left: 20,
+            zIndex: 10,
           }}
         >
           <h1
             style={{
               fontFamily: "var(--font-heading)",
-              fontSize: 36,
-              fontWeight: 700,
+              fontSize: "clamp(36px, 10vw, 48px)",
+              fontWeight: 800,
               color: "white",
-              letterSpacing: -1.5,
-              lineHeight: 1.1,
+              letterSpacing: "-2px",
+              lineHeight: 1.0,
               margin: 0,
+              textShadow: "0 4px 24px rgba(0,0,0,0.5)",
             }}
           >
             Chat with
             <br />
-            your favorite ABG
+            your favorite
+            <br />
+            <span style={{ color: "var(--color-cream)" }}>ABG</span>
           </h1>
         </div>
 
-        {/* Center persona image — liquid glass edges */}
+        {/* Persona name — liquid glass panel */}
         <div
           style={{
             position: "absolute",
-            bottom: "10vh",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "75vw",
-            height: "60svh",
-            zIndex: 3,
-            pointerEvents: "none",
-            borderRadius: 32,
-            overflow: "hidden",
-          }}
-        >
-          <img
-            src={current.image}
-            alt={current.name}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              objectPosition: "top",
-              transition: "opacity 0.3s ease",
-            }}
-          />
-          {/* Glass edges — blur + SVG distortion refraction */}
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "30%", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", filter: "url(#glass-distortion)", maskImage: "linear-gradient(to bottom, black, transparent)", WebkitMaskImage: "linear-gradient(to bottom, black, transparent)", background: "linear-gradient(to bottom, rgba(255,255,255,0.08), transparent)" }} />
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "35%", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", filter: "url(#glass-distortion)", maskImage: "linear-gradient(to top, black, transparent)", WebkitMaskImage: "linear-gradient(to top, black, transparent)", background: "linear-gradient(to top, rgba(255,255,255,0.08), transparent)" }} />
-          <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "25%", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", filter: "url(#glass-distortion)", maskImage: "linear-gradient(to right, black, transparent)", WebkitMaskImage: "linear-gradient(to right, black, transparent)", background: "linear-gradient(to right, rgba(255,255,255,0.06), transparent)" }} />
-          <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: "25%", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", filter: "url(#glass-distortion)", maskImage: "linear-gradient(to left, black, transparent)", WebkitMaskImage: "linear-gradient(to left, black, transparent)", background: "linear-gradient(to left, rgba(255,255,255,0.06), transparent)" }} />
-          {/* Glass sheen — inset highlight + outer shadow */}
-          <div style={{ position: "absolute", inset: 0, borderRadius: 32, border: "1px solid rgba(255,255,255,0.18)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 0 rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.3)", pointerEvents: "none" }} />
-        </div>
-
-        {/* Persona name overlay */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: "20vh",
-            left: 24,
-            zIndex: 5,
-            textShadow: "0 2px 16px rgba(0,0,0,0.6)",
+            bottom: "18vh",
+            left: 16,
+            zIndex: 10,
+            padding: "16px 22px",
+            borderRadius: 20,
+            background: "rgba(255,255,255,0.03)",
+            backdropFilter: "blur(12px) saturate(1.2)",
+            WebkitBackdropFilter: "blur(12px) saturate(1.2)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 20px rgba(0,0,0,0.15)",
             fontFamily: "var(--font-heading)",
           }}
           key={index}
         >
           <div
             style={{
-              fontSize: 40,
-              fontWeight: 700,
+              fontSize: "clamp(40px, 12vw, 60px)",
+              fontWeight: 800,
               color: "white",
-              letterSpacing: -1,
-              lineHeight: 1.05,
+              letterSpacing: "-2px",
+              lineHeight: 0.95,
             }}
           >
             {current.name}
           </div>
           <div
             style={{
-              fontSize: 40,
-              fontWeight: 700,
-              color: "white",
-              letterSpacing: -1,
-              lineHeight: 1.05,
+              fontSize: "clamp(16px, 4vw, 22px)",
+              fontWeight: 400,
+              color: "rgba(255,255,255,0.6)",
+              letterSpacing: "-0.5px",
+              marginTop: 6,
             }}
           >
-            <span style={{ fontWeight: 400 }}>{current.age}세</span>
+            {current.age}세 · {current.tagline}
           </div>
         </div>
 
@@ -252,14 +222,14 @@ export default function Home() {
         <div
           style={{
             position: "absolute",
-            bottom: "4vh",
-            left: 24,
-            right: 24,
+            bottom: "3vh",
+            left: 16,
+            right: 16,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             gap: 8,
-            zIndex: 5,
+            zIndex: 10,
           }}
         >
           <div
@@ -289,13 +259,13 @@ export default function Home() {
                 color: "#1a1a1a",
                 borderRadius: 40,
                 fontSize: 16,
-                fontWeight: 500,
+                fontWeight: 600,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 10,
                 textDecoration: "none",
-                height: 50,
+                height: 52,
                 flex: 1,
               }}
             >
@@ -313,16 +283,6 @@ export default function Home() {
               ›
             </span>
           </div>
-          <p
-            style={{
-              fontFamily: "var(--font-satoshi), sans-serif",
-              fontSize: 11,
-              color: "rgba(255,255,255,0.5)",
-              margin: 0,
-            }}
-          >
-            {current.tagline}
-          </p>
         </div>
       </div>
     );
@@ -364,14 +324,40 @@ export default function Home() {
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(0,0,0,0.35)",
+          background: "rgba(0,0,0,0.2)",
           zIndex: 0,
           pointerEvents: "none",
         }}
       />
 
       <main style={{ position: "relative", height: "100svh", overflow: "hidden" }}>
-        {/* Logo */}
+        {/* Persona image */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: "50%",
+            transform: "translateX(-50%)",
+            height: "85vh",
+            width: "auto",
+            zIndex: 5,
+            pointerEvents: "none",
+          }}
+        >
+          <img
+            src={current.image}
+            alt={current.name}
+            style={{
+              height: "100%",
+              width: "auto",
+              objectFit: "contain",
+              objectPosition: "bottom center",
+              transition: "opacity 0.4s ease",
+            }}
+          />
+        </div>
+
+        {/* Logo — z-10 */}
         <img
           src="/logo.png"
           alt="ABGs"
@@ -379,14 +365,14 @@ export default function Home() {
             position: "absolute",
             top: "4vh",
             left: "8vw",
-            zIndex: 5,
+            zIndex: 10,
             height: "clamp(24px, 3vw, 36px)",
             width: "auto",
           }}
         />
 
-        {/* Top-right CTA */}
-        <div style={{ position: "absolute", top: "4vh", right: "8vw", zIndex: 5 }}>
+        {/* Top-right CTA — z-10 */}
+        <div style={{ position: "absolute", top: "4vh", right: "8vw", zIndex: 10 }}>
           <Link
             href={`/chat/${current.id}`}
             style={{
@@ -409,16 +395,16 @@ export default function Home() {
           </Link>
         </div>
 
-        {/* Left headline */}
+        {/* Left headline — big, bold, front layer */}
         <div
           style={{
             position: "absolute",
             top: 0,
             bottom: 0,
-            left: "15vw",
+            left: "8vw",
             display: "flex",
             alignItems: "center",
-            zIndex: 3,
+            zIndex: 10,
           }}
         >
           <h1
@@ -426,73 +412,76 @@ export default function Home() {
               display: "flex",
               flexDirection: "column",
               fontFamily: "var(--font-heading)",
-              fontSize: "clamp(2.5rem, 5vw, 5rem)",
-              fontWeight: 700,
+              fontSize: "clamp(3rem, 6vw, 6.5rem)",
+              fontWeight: 800,
               color: "white",
-              letterSpacing: "-2px",
-              lineHeight: 1.05,
+              letterSpacing: "-3px",
+              lineHeight: 0.95,
+              textShadow: "0 4px 32px rgba(0,0,0,0.5)",
             }}
           >
             <span>Chat with</span>
             <span>your favorite</span>
-            <span>ABG</span>
+            <span style={{ color: "var(--color-cream)" }}>ABG</span>
           </h1>
         </div>
 
-        {/* Right persona info */}
+        {/* Right persona info — big, front layer */}
         <div
           style={{
             position: "absolute",
-            right: "15vw",
+            right: "8vw",
             top: 0,
             bottom: 0,
             display: "flex",
             alignItems: "center",
-            zIndex: 3,
+            zIndex: 10,
             fontFamily: "var(--font-heading)",
+            textShadow: "0 4px 32px rgba(0,0,0,0.5)",
           }}
         >
           <div
             style={{
               display: "flex",
               flexDirection: "column",
+              alignItems: "flex-end",
               transition: "opacity 0.3s ease",
             }}
             key={index}
           >
             <span
               style={{
-                fontSize: "clamp(2.5rem, 5vw, 5rem)",
-                fontWeight: 700,
+                fontSize: "clamp(3rem, 6vw, 6.5rem)",
+                fontWeight: 800,
                 color: "white",
-                letterSpacing: "-1px",
-                lineHeight: 1.1,
+                letterSpacing: "-2px",
+                lineHeight: 0.95,
               }}
             >
               {current.name}
             </span>
             <span
               style={{
-                fontSize: "clamp(2.5rem, 5vw, 5rem)",
+                fontSize: "clamp(1.2rem, 2vw, 1.8rem)",
                 fontWeight: 400,
-                color: "white",
-                letterSpacing: "-1px",
-                lineHeight: 1.1,
+                color: "rgba(255,255,255,0.5)",
+                letterSpacing: "-0.5px",
+                marginTop: 8,
               }}
             >
-              {current.age}세
+              {current.age}세 · {current.tagline}
             </span>
           </div>
         </div>
 
-        {/* Bottom center CTA + carousel */}
+        {/* Bottom center CTA + carousel — z-10 */}
         <div
           style={{
             position: "absolute",
             left: "50%",
             bottom: "8vh",
             transform: "translateX(-50%)",
-            zIndex: 5,
+            zIndex: 10,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -527,7 +516,7 @@ export default function Home() {
                 color: "#1a1a1a",
                 borderRadius: 40,
                 fontSize: "clamp(18px, 2.5vw, 24px)",
-                fontWeight: 500,
+                fontWeight: 600,
                 cursor: "pointer",
                 transition: "all 0.2s ease",
                 backdropFilter: "blur(10px)",
@@ -556,53 +545,6 @@ export default function Home() {
               ›
             </span>
           </div>
-          <p
-            style={{
-              fontFamily: "var(--font-satoshi), sans-serif",
-              fontSize: 13,
-              fontWeight: 400,
-              color: "rgba(255,255,255,0.5)",
-              margin: 0,
-            }}
-          >
-            {current.tagline}
-          </p>
-        </div>
-
-        {/* Center persona image — liquid glass edges */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: "10vh",
-            left: "50%",
-            transform: "translateX(-50%)",
-            height: "78vh",
-            width: "30vw",
-            minWidth: 340,
-            zIndex: 4,
-            pointerEvents: "none",
-            borderRadius: 28,
-            overflow: "hidden",
-          }}
-        >
-          <img
-            src={current.image}
-            alt={current.name}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              objectPosition: "top",
-              transition: "opacity 0.3s ease",
-            }}
-          />
-          {/* Glass edges — blur + SVG distortion */}
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "25%", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", filter: "url(#glass-distortion)", maskImage: "linear-gradient(to bottom, black, transparent)", WebkitMaskImage: "linear-gradient(to bottom, black, transparent)", background: "linear-gradient(to bottom, rgba(255,255,255,0.08), transparent)" }} />
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "30%", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", filter: "url(#glass-distortion)", maskImage: "linear-gradient(to top, black, transparent)", WebkitMaskImage: "linear-gradient(to top, black, transparent)", background: "linear-gradient(to top, rgba(255,255,255,0.08), transparent)" }} />
-          <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "20%", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", filter: "url(#glass-distortion)", maskImage: "linear-gradient(to right, black, transparent)", WebkitMaskImage: "linear-gradient(to right, black, transparent)", background: "linear-gradient(to right, rgba(255,255,255,0.06), transparent)" }} />
-          <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: "20%", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", filter: "url(#glass-distortion)", maskImage: "linear-gradient(to left, black, transparent)", WebkitMaskImage: "linear-gradient(to left, black, transparent)", background: "linear-gradient(to left, rgba(255,255,255,0.06), transparent)" }} />
-          {/* Glass sheen */}
-          <div style={{ position: "absolute", inset: 0, borderRadius: 28, border: "1px solid rgba(255,255,255,0.18)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 0 rgba(255,255,255,0.05), 0 12px 48px rgba(0,0,0,0.4)", pointerEvents: "none" }} />
         </div>
       </main>
 
@@ -610,7 +552,7 @@ export default function Home() {
       <footer
         style={{
           position: "relative",
-          zIndex: 1,
+          zIndex: 10,
           padding: "24px 8vw",
           display: "flex",
           justifyContent: "space-between",
