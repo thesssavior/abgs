@@ -14,8 +14,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ABGS - AI Babes",
-  description: "Chat with your dream AI companions",
+  title: "ABGs : DM your favorite ABG",
+  description: "DM your favorite ABG on Instagram",
+  metadataBase: new URL("https://abgs.app"),
+  icons: {
+    apple: "/apple-touch-icon.png",
+  },
+  openGraph: {
+    title: "ABGs : DM AI ABG GF",
+    description: "DM your favorite ABG on Instagram",
+    images: [{ url: "/og.jpg", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ABGs : DM AI ABG GF",
+    description: "DM your favorite ABG on Instagram",
+    images: ["/og-twitter.jpg"],
+  },
 };
 
 export default function RootLayout({
