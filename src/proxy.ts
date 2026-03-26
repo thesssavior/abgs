@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+export const config = {
+  matcher: ["/((?!ingest|_next/static|_next/image|favicon.ico).*)"],
+};
+
 export function proxy(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const isOldDomain = /(?:www\.)?agentbabygirl\.com/i.test(host);
