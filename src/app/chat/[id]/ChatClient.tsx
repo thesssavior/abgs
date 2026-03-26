@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import posthog from "posthog-js";
 import type { Character } from "@/lib/characters";
 
 interface Message {
@@ -50,6 +51,20 @@ export default function ChatClient({ character }: { character: Character }) {
   const saveMessages = useCallback(
     (msgs: Message[]) => {
       localStorage.setItem(storageKey(character.id), JSON.stringify(msgs));
+
+      // Background save to DB — fire-and-forget, no await
+      const chatSessionId = localStorage.getItem(`chat_session_${character.id}`);
+      if (chatSessionId) {
+        fetch("/api/chat/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: chatSessionId,
+            characterId: character.id,
+            messages: msgs,
+          }),
+        }).catch(() => {});
+      }
     },
     [character.id]
   );
@@ -68,6 +83,12 @@ export default function ChatClient({ character }: { character: Character }) {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (showPaywall) {
+      posthog.capture("paywall_viewed", { character_id: character.id });
+    }
+  }, [showPaywall, character.id]);
 
   // Persistent WebSocket connection to Worker
   useEffect(() => {
@@ -189,6 +210,7 @@ export default function ChatClient({ character }: { character: Character }) {
           if (!active) return;
 
           if (claimRes.ok && claimData.hasPaid) {
+            posthog.capture("checkout_completed", { character_id: character.id });
             setHasPaid(true);
             setShowPaywall(false);
             setPremiumMessage("결제가 확인됐어요. 프리미엄이 열렸어.");
@@ -238,6 +260,9 @@ export default function ChatClient({ character }: { character: Character }) {
     setIsTyping(true);
 
     setTimeout(() => {
+      if (!hasPaid) {
+        posthog.capture("paywall_image_viewed", { character_id: character.id });
+      }
       setMessages([
         ...newMessages,
         {
@@ -254,6 +279,12 @@ export default function ChatClient({ character }: { character: Character }) {
   async function handleSend() {
     const text = input.trim();
     if (!text || isTyping) return;
+
+    posthog.capture("message_sent", {
+      character_id: character.id,
+      character_name: character.name,
+      message_count: messages.length + 1,
+    });
 
     const userMessage: Message = { role: "user", content: text };
     const newMessages = [...messages, userMessage];
@@ -305,6 +336,7 @@ export default function ChatClient({ character }: { character: Character }) {
   async function handleCheckout() {
     if (isStartingCheckout) return;
 
+    posthog.capture("checkout_started", { character_id: character.id });
     setIsStartingCheckout(true);
     setPremiumMessage(null);
 
@@ -475,7 +507,14 @@ export default function ChatClient({ character }: { character: Character }) {
                 <button
                   type="button"
                   className="relative block"
-                  onClick={() => msg.blurred && setShowPaywall(true)}
+                  onClick={() => {
+                    if (msg.blurred) {
+                      posthog.capture("paywall_image_clicked", {
+                        character_id: character.id,
+                      });
+                      setShowPaywall(true);
+                    }
+                  }}
                 >
                   <Image
                     src={msg.image}
