@@ -301,7 +301,7 @@ export default function ChatClient({ character }: { character: Character }) {
       const replyText = await new Promise<string>((resolve, reject) => {
         wsResolverRef.current = resolve;
         wsRejecterRef.current = reject;
-        ws.send(JSON.stringify({ type: "message", text }));
+        ws.send(JSON.stringify({ type: "message", text, id: crypto.randomUUID() }));
         // Timeout
         setTimeout(() => {
           if (wsResolverRef.current === resolve) {
