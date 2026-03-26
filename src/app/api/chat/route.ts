@@ -1,11 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCharacter } from "@/lib/characters";
-import { parseChatRequest } from "@/lib/chat-payload";
+import { getCharacterSystemPrompt } from "@/lib/character-prompts";
+import {
+  parseChatRequest,
+  trimChatMessagesForModel,
+  type ChatRequestMessage,
+} from "@/lib/chat-payload";
+import OpenAI from "openai";
 
+// Characters that use the WebSocket worker (all others use OpenAI)
+const WS_CHARACTERS = new Set(["yuna"]);
+
+// OpenAI config
+let _openai: OpenAI;
+function openai() {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
+
+// WebSocket worker config
 const WS_URL = process.env.THEHACK_SUME_WS_URL || "";
 const WS_TOKEN = process.env.THEHACK_SUME_API_TOKEN || "";
 const PERSONA_PROFILE_ID = process.env.THEHACK_SUME_PERSONA_PROFILE_ID || "lee-seol";
-
 const WS_REPLY_TIMEOUT_MS = 25_000;
 
 export async function POST(req: NextRequest) {
@@ -26,13 +42,71 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "캐릭터를 찾을 수 없어요" }, { status: 404 });
   }
 
-  // Extract the latest user message
+  if (WS_CHARACTERS.has(characterId)) {
+    return handleWebSocket(body, characterId, messages, character.id);
+  }
+
+  return handleOpenAI(characterId, messages, character.id);
+}
+
+// ─── OpenAI path (Jia, Sera, etc.) ────────────────────────────────────
+
+async function handleOpenAI(
+  characterId: string,
+  messages: ChatRequestMessage[],
+  charId: string,
+) {
+  const modelMessages = trimChatMessagesForModel(messages);
+  const systemPrompt = getCharacterSystemPrompt(characterId);
+
+  if (!systemPrompt) {
+    return NextResponse.json({ error: "캐릭터 설정을 찾을 수 없어요" }, { status: 500 });
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json({
+      message: getFallbackResponse(charId, modelMessages.length),
+    });
+  }
+
+  try {
+    const completion = await openai().chat.completions.create({
+      model: "gpt-4o",
+      max_tokens: 256,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...modelMessages,
+      ],
+    });
+
+    const text = completion.choices[0]?.message?.content;
+    if (text) {
+      return NextResponse.json({ message: text });
+    }
+
+    return NextResponse.json({
+      message: getFallbackResponse(charId, modelMessages.length),
+    });
+  } catch {
+    return NextResponse.json({
+      message: getFallbackResponse(charId, modelMessages.length),
+    });
+  }
+}
+
+// ─── WebSocket worker path (Yuna) ─────────────────────────────────────
+
+async function handleWebSocket(
+  body: unknown,
+  characterId: string,
+  messages: ChatRequestMessage[],
+  charId: string,
+) {
   const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUserMessage) {
     return NextResponse.json({ error: "메시지가 없어요" }, { status: 400 });
   }
 
-  // Session ID from client (localStorage-based) or fallback
   const clientSessionId = typeof (body as Record<string, unknown>)?.sessionId === "string"
     ? ((body as Record<string, unknown>).sessionId as string).trim()
     : "";
@@ -40,26 +114,19 @@ export async function POST(req: NextRequest) {
 
   if (!WS_URL || !WS_TOKEN) {
     return NextResponse.json({
-      message: getFallbackResponse(character.id, messages.length),
-      _debug: {
-        hasWsUrl: !!WS_URL,
-        hasToken: !!WS_TOKEN,
-        wsUrlLen: WS_URL.length,
-        tokenLen: WS_TOKEN.length,
-      },
+      message: getFallbackResponse(charId, messages.length),
     });
   }
 
   try {
     let reply = await sendViaWebSocket(sessionId, lastUserMessage.content);
-    // Worker tool loop can timeout on cold DO — retry once
     if (reply.includes("could not finish tool processing")) {
       reply = await sendViaWebSocket(sessionId, lastUserMessage.content);
     }
     return NextResponse.json({ message: reply });
   } catch {
     return NextResponse.json({
-      message: getFallbackResponse(character.id, messages.length),
+      message: getFallbackResponse(charId, messages.length),
     });
   }
 }
@@ -125,6 +192,22 @@ function getFallbackResponse(charId: string, msgCount: number): string {
       "음... 너 은근 재밌는 사람이네",
       "그런 얘기 하면 나 더 궁금해지잖아",
       "야 택시 타고 오면 안 돼? ㅋㅋ 농담",
+    ],
+    jia: [
+      "ㅎㅎ 진짜? 커피 내리면서 들으니까 더 좋다",
+      "아 오늘 카페 손님 진짜 많았어",
+      "너 우리 카페 오면 내가 라떼 만들어줄게 ㅋㅋ",
+      "음... 그런 얘기 좋아. 더 해줘",
+      "과제 하다가 폰 봤는데 잘했다 ㅎㅎ",
+      "쉬는 날에 바다 가고 싶다~",
+    ],
+    sera: [
+      "음.. 그거 좀 멜로디 느낌인데",
+      "ㅋㅋ 재밌네. 비트 넣으면 노래 되겠다",
+      "아 나 지금 새벽 작업 중인데 집중 안 돼",
+      "그런 감성 좋아해. 더 얘기해봐",
+      "너 음악 들으면서 산책해본 적 있어?",
+      "와인 한 잔 하면서 얘기하고 싶다 ㅋㅋ",
     ],
   };
 

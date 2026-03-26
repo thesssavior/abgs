@@ -7,6 +7,9 @@ import Image from "next/image";
 import posthog from "posthog-js";
 import type { Character } from "@/lib/characters";
 
+// Characters that use the persistent WebSocket; others use HTTP POST → OpenAI
+const WS_CHARACTERS = new Set(["yuna"]);
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -90,8 +93,10 @@ export default function ChatClient({ character }: { character: Character }) {
     }
   }, [showPaywall, character.id]);
 
-  // Persistent WebSocket connection to Worker
+  // Persistent WebSocket connection to Worker (only for WS characters)
   useEffect(() => {
+    if (!WS_CHARACTERS.has(character.id)) return;
+
     let ws: WebSocket | null = null;
     let dead = false;
 
@@ -186,7 +191,10 @@ export default function ChatClient({ character }: { character: Character }) {
       setMessages(initial);
       setIsTyping(false);
     }, 1000);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      initialized.current = false;
+    };
   }, [character]);
 
   useEffect(() => {
@@ -268,7 +276,7 @@ export default function ChatClient({ character }: { character: Character }) {
         {
           role: "assistant",
           content: "이거 너만 보는 거야 ㅎ",
-          image: "/yuna_card.png",
+          image: character.paywallImage,
           blurred: !hasPaid,
         },
       ]);
@@ -293,24 +301,41 @@ export default function ChatClient({ character }: { character: Character }) {
     setIsTyping(true);
 
     try {
-      const ws = wsRef.current;
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        throw new Error("연결이 끊겼어. 잠시 후 다시 보내줘~");
-      }
+      let replyText: string;
 
-      const replyText = await new Promise<string>((resolve, reject) => {
-        wsResolverRef.current = resolve;
-        wsRejecterRef.current = reject;
-        ws.send(JSON.stringify({ type: "message", text, id: crypto.randomUUID() }));
-        // Timeout
-        setTimeout(() => {
-          if (wsResolverRef.current === resolve) {
-            wsResolverRef.current = null;
-            wsRejecterRef.current = null;
-            reject(new Error("응답이 늦어지고 있어. 다시 보내줘~"));
-          }
-        }, 25_000);
-      });
+      if (WS_CHARACTERS.has(character.id)) {
+        // WebSocket path (Yuna)
+        const ws = wsRef.current;
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          throw new Error("연결이 끊겼어. 잠시 후 다시 보내줘~");
+        }
+
+        replyText = await new Promise<string>((resolve, reject) => {
+          wsResolverRef.current = resolve;
+          wsRejecterRef.current = reject;
+          ws.send(JSON.stringify({ type: "message", text, id: crypto.randomUUID() }));
+          setTimeout(() => {
+            if (wsResolverRef.current === resolve) {
+              wsResolverRef.current = null;
+              wsRejecterRef.current = null;
+              reject(new Error("응답이 늦어지고 있어. 다시 보내줘~"));
+            }
+          }, 25_000);
+        });
+      } else {
+        // HTTP POST path (Jia, Sera — OpenAI)
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            characterId: character.id,
+            messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+            sessionId: localStorage.getItem(`chat_session_${character.id}`) || undefined,
+          }),
+        });
+        const data = await res.json();
+        replyText = data.message || "앗 잠깐 끊겼어ㅠㅠ 다시 보내줘~";
+      }
 
       setMessages([
         ...newMessages,
@@ -522,7 +547,7 @@ export default function ChatClient({ character }: { character: Character }) {
                     width={352}
                     height={467}
                     sizes="192px"
-                    className={`w-48 h-auto object-cover rounded-2xl ${msg.blurred ? "blur-xl" : ""}`}
+                    className={`w-48 h-auto object-cover rounded-2xl ${msg.blurred ? "blur-sm" : ""}`}
                   />
                   {msg.blurred && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -742,7 +767,9 @@ export default function ChatClient({ character }: { character: Character }) {
 
 function getGreeting(char: Character): string {
   const greetings: Record<string, string> = {
-    yuna: "어 왔네 ㅎㅎ 나 유나. 지금 편집실인데 심심해서 폰 봤거든",
+    yuna: "안녕, 내 이름은 유나야. 오늘 밤은 어때?",
+    jia: "안녕~ 나 지아ㅎㅎ 알바 끝나고 쉬는 중이야",
+    sera: "왔구나, 나 세라. 만나서 반가워.",
   };
   return greetings[char.id] || `안녕~ 나 ${char.name}이야. 같이 얘기하자~`;
 }
