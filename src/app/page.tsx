@@ -3,13 +3,19 @@
 import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 import posthog from "posthog-js";
-import { characters } from "@/lib/characters";
+import { characters, loc } from "@/lib/characters";
+import { detectLocale } from "@/lib/i18n";
 
 export default function Home() {
   const [index, setIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const locale = detectLocale();
 
   const current = characters[index];
+  const name = loc(current.name, locale);
+  const tagline = loc(current.tagline, locale);
+  const ageSuffix = locale === "ko" ? "세" : "y/o";
+  const ctaText = locale === "ko" ? `${name}와 대화하기` : `Chat with ${name}`;
 
   const prev = useCallback(() => {
     setIndex((i) => (i - 1 + characters.length) % characters.length);
@@ -98,7 +104,7 @@ export default function Home() {
         >
           <img
             src={current.image}
-            alt={current.name}
+            alt={name}
             style={{
               width: "100%",
               height: "100%",
@@ -204,7 +210,7 @@ export default function Home() {
               lineHeight: 0.95,
             }}
           >
-            {current.name}
+            {name}
           </div>
           <div
             style={{
@@ -215,7 +221,7 @@ export default function Home() {
               marginTop: 6,
             }}
           >
-            {current.age}세 · {current.tagline}
+            {current.age}{ageSuffix} · {tagline}
           </div>
         </div>
 
@@ -254,7 +260,7 @@ export default function Home() {
             </span>
             <Link
               href={`/chat/${current.id}`}
-              onClick={() => posthog.capture("chat_started", { character_id: current.id, character_name: current.name, source: "mobile" })}
+              onClick={() => posthog.capture("chat_started", { character_id: current.id, character_name: name, source: "mobile" })}
               style={{
                 fontFamily: "var(--font-satoshi), sans-serif",
                 background: "rgba(255,255,255,0.95)",
@@ -271,7 +277,7 @@ export default function Home() {
                 flex: 1,
               }}
             >
-              {current.name}와 대화하기
+              {ctaText}
             </Link>
             <span
               onClick={next}
@@ -348,7 +354,7 @@ export default function Home() {
         >
           <img
             src={current.image}
-            alt={current.name}
+            alt={name}
             style={{
               height: "100%",
               width: "auto",
@@ -460,7 +466,7 @@ export default function Home() {
                 lineHeight: 0.95,
               }}
             >
-              {current.name}
+              {name}
             </span>
             <span
               style={{
@@ -471,7 +477,7 @@ export default function Home() {
                 marginTop: 8,
               }}
             >
-              {current.age}세 · {current.tagline}
+              {current.age}{ageSuffix} · {tagline}
             </span>
           </div>
         </div>
@@ -511,7 +517,7 @@ export default function Home() {
             </span>
             <Link
               href={`/chat/${current.id}`}
-              onClick={() => posthog.capture("chat_started", { character_id: current.id, character_name: current.name, source: "desktop" })}
+              onClick={() => posthog.capture("chat_started", { character_id: current.id, character_name: name, source: "desktop" })}
               style={{
                 fontFamily: "var(--font-satoshi), sans-serif",
                 background: "rgba(255,255,255,0.95)",
@@ -533,7 +539,7 @@ export default function Home() {
                 height: 62,
               }}
             >
-              {current.name}와 대화하기
+              {ctaText}
             </Link>
             <span
               onClick={next}

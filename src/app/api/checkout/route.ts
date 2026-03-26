@@ -22,20 +22,30 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const lang = req.headers.get("accept-language") || "";
+  const isKorean = lang.startsWith("ko") || lang.includes("ko-KR");
+
   try {
     const session = await stripe().checkout.sessions.create({
       mode: "payment",
       customer_creation: "always",
-      line_items: [
-        {
-          price_data: {
-            currency: "krw",
-            product: "prod_UCBLp0x6wfoWPw",
-            unit_amount: 4900,
-          },
-          quantity: 1,
-        },
-      ],
+      line_items: isKorean
+        ? [
+            {
+              price_data: {
+                currency: "krw",
+                product: "prod_UCBLp0x6wfoWPw",
+                unit_amount: 4900,
+              },
+              quantity: 1,
+            },
+          ]
+        : [
+            {
+              price: "price_1TDmyTA6JAw4AKJvmwSW5xCn",
+              quantity: 1,
+            },
+          ],
       metadata: {
         characterId: character.id,
       },

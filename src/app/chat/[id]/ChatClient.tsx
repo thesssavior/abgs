@@ -6,6 +6,8 @@ import Link from "next/link";
 import Image from "next/image";
 import posthog from "posthog-js";
 import type { Character } from "@/lib/characters";
+import { loc } from "@/lib/characters";
+import { detectLocale, s, fn } from "@/lib/i18n";
 
 // Characters that use the persistent WebSocket; others use HTTP POST → OpenAI
 const WS_CHARACTERS = new Set(["yuna"]);
@@ -44,6 +46,9 @@ export default function ChatClient({ character }: { character: Character }) {
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreEmail, setRestoreEmail] = useState("");
   const [premiumMessage, setPremiumMessage] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(180);
+  const locale = detectLocale();
+  const name = loc(character.name, locale);
   const initialized = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,8 +95,15 @@ export default function ChatClient({ character }: { character: Character }) {
   useEffect(() => {
     if (showPaywall) {
       posthog.capture("paywall_viewed", { character_id: character.id });
+      setCountdown(180);
     }
   }, [showPaywall, character.id]);
+
+  useEffect(() => {
+    if (!showPaywall || countdown <= 0) return;
+    const t = setInterval(() => setCountdown((c) => c - 1), 1000);
+    return () => clearInterval(t);
+  }, [showPaywall, countdown]);
 
   // Persistent WebSocket connection to Worker (only for WS characters)
   useEffect(() => {
@@ -186,7 +198,7 @@ export default function ChatClient({ character }: { character: Character }) {
               },
             ]
           : []),
-        { role: "assistant" as const, content: getGreeting(character) },
+        { role: "assistant" as const, content: getGreeting(character, locale) },
       ];
       setMessages(initial);
       setIsTyping(false);
@@ -195,7 +207,7 @@ export default function ChatClient({ character }: { character: Character }) {
       clearTimeout(timer);
       initialized.current = false;
     };
-  }, [character]);
+  }, [character, locale]);
 
   useEffect(() => {
     let active = true;
@@ -221,14 +233,14 @@ export default function ChatClient({ character }: { character: Character }) {
             posthog.capture("checkout_completed", { character_id: character.id });
             setHasPaid(true);
             setShowPaywall(false);
-            setPremiumMessage("결제가 확인됐어요. 프리미엄이 열렸어.");
+            setPremiumMessage(s("premiumConfirmed", locale));
           } else if (claimData.error) {
             setPremiumMessage(claimData.error);
           }
 
           clearCheckoutParams();
         } else if (checkoutStatus === "canceled") {
-          setPremiumMessage("결제가 취소됐어요. 준비되면 다시 잠금 해제해줘.");
+          setPremiumMessage(s("premiumCanceled", locale));
           clearCheckoutParams();
         }
 
@@ -244,7 +256,7 @@ export default function ChatClient({ character }: { character: Character }) {
         setHasPaid(Boolean(data.hasPaid));
       } catch {
         if (active) {
-          setPremiumMessage("프리미엄 상태를 확인하지 못했어. 잠시 후 다시 시도해줘.");
+          setPremiumMessage(s("premiumCheckFailed", locale));
         }
       } finally {
         if (active) {
@@ -258,11 +270,11 @@ export default function ChatClient({ character }: { character: Character }) {
     return () => {
       active = false;
     };
-  }, [character.id, checkoutStatus, sessionId]);
+  }, [character.id, checkoutStatus, sessionId, locale]);
 
   function handlePhotoRequest() {
     if (isTyping) return;
-    const userMessage: Message = { role: "user", content: "사진 보내줘" };
+    const userMessage: Message = { role: "user", content: s("sendPhoto", locale) };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setIsTyping(true);
@@ -275,7 +287,7 @@ export default function ChatClient({ character }: { character: Character }) {
         ...newMessages,
         {
           role: "assistant",
-          content: "이거 너만 보는 거야 ㅎ",
+          content: s("photoResponse", locale),
           image: character.paywallImage,
           blurred: !hasPaid,
         },
@@ -290,7 +302,7 @@ export default function ChatClient({ character }: { character: Character }) {
 
     posthog.capture("message_sent", {
       character_id: character.id,
-      character_name: character.name,
+      character_name: name,
       message_count: messages.length + 1,
     });
 
@@ -307,7 +319,7 @@ export default function ChatClient({ character }: { character: Character }) {
         // WebSocket path (Yuna)
         const ws = wsRef.current;
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-          throw new Error("연결이 끊겼어. 잠시 후 다시 보내줘~");
+          throw new Error(s("wsDisconnected", locale));
         }
 
         replyText = await new Promise<string>((resolve, reject) => {
@@ -318,7 +330,7 @@ export default function ChatClient({ character }: { character: Character }) {
             if (wsResolverRef.current === resolve) {
               wsResolverRef.current = null;
               wsRejecterRef.current = null;
-              reject(new Error("응답이 늦어지고 있어. 다시 보내줘~"));
+              reject(new Error(s("wsTimeout", locale)));
             }
           }, 25_000);
         });
@@ -334,7 +346,7 @@ export default function ChatClient({ character }: { character: Character }) {
           }),
         });
         const data = await res.json();
-        replyText = data.message || "앗 잠깐 끊겼어ㅠㅠ 다시 보내줘~";
+        replyText = data.message || s("genericError", locale);
       }
 
       setMessages([
@@ -345,7 +357,7 @@ export default function ChatClient({ character }: { character: Character }) {
       const message =
         error instanceof Error
           ? error.message
-          : "앗 잠깐 끊겼어ㅠㅠ 다시 보내줘~";
+          : s("genericError", locale);
       setMessages([
         ...newMessages,
         {
@@ -378,9 +390,9 @@ export default function ChatClient({ character }: { character: Character }) {
         return;
       }
 
-      setPremiumMessage(data.error || "결제 화면을 열지 못했어. 잠시 후 다시 시도해줘.");
+      setPremiumMessage(data.error || s("checkoutFailed", locale));
     } catch {
-      setPremiumMessage("결제 화면을 열지 못했어. 잠시 후 다시 시도해줘.");
+      setPremiumMessage(s("checkoutFailed", locale));
     } finally {
       setIsStartingCheckout(false);
     }
@@ -408,13 +420,13 @@ export default function ChatClient({ character }: { character: Character }) {
         setHasPaid(true);
         setShowPaywall(false);
         setRestoreEmail("");
-        setPremiumMessage("구매 내역을 복원했어.");
+        setPremiumMessage(s("premiumRestored", locale));
         return;
       }
 
-      setPremiumMessage(data.error || "구매 내역을 복원하지 못했어.");
+      setPremiumMessage(data.error || s("premiumRestoreFailed", locale));
     } catch {
-      setPremiumMessage("구매 내역을 복원하지 못했어.");
+      setPremiumMessage(s("premiumRestoreFailed", locale));
     } finally {
       setIsRestoring(false);
     }
@@ -464,7 +476,7 @@ export default function ChatClient({ character }: { character: Character }) {
         >
           <Image
             src={character.image}
-            alt={character.name}
+            alt={name}
             width={40}
             height={40}
             className="w-full h-full object-cover"
@@ -475,13 +487,13 @@ export default function ChatClient({ character }: { character: Character }) {
             className="font-bold text-sm text-white"
             style={{ fontFamily: "var(--font-satoshi)" }}
           >
-            {character.name}
+            {name}
           </h1>
-          <p className="text-xs text-white/50">{character.personality}</p>
+          <p className="text-xs text-white/50">{loc(character.personality, locale)}</p>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-xs text-green-400/80">접속중</span>
+          <span className="text-xs text-green-400/80">{s("online", locale)}</span>
         </div>
       </header>
 
@@ -499,7 +511,7 @@ export default function ChatClient({ character }: { character: Character }) {
               >
                 <Image
                   src={character.image}
-                  alt={character.name}
+                  alt={name}
                   width={32}
                   height={32}
                   className="w-full h-full object-cover"
@@ -543,7 +555,7 @@ export default function ChatClient({ character }: { character: Character }) {
                 >
                   <Image
                     src={msg.image}
-                    alt="사진"
+                    alt={locale === "ko" ? "사진" : "Photo"}
                     width={352}
                     height={467}
                     sizes="192px"
@@ -566,7 +578,7 @@ export default function ChatClient({ character }: { character: Character }) {
                         />
                       </svg>
                       <span className="text-white text-xs font-semibold mt-1 drop-shadow-lg">
-                        탭하여 잠금 해제
+                        {s("tapToUnlock", locale)}
                       </span>
                     </div>
                   )}
@@ -586,7 +598,7 @@ export default function ChatClient({ character }: { character: Character }) {
             >
               <Image
                 src={character.image}
-                alt={character.name}
+                alt={name}
                 width={32}
                 height={32}
                 className="w-full h-full object-cover"
@@ -629,7 +641,7 @@ export default function ChatClient({ character }: { character: Character }) {
               color: "rgba(255,255,255,0.7)",
             }}
           >
-            사진 보내줘
+            {s("sendPhoto", locale)}
           </button>
         </div>
       </div>
@@ -650,7 +662,7 @@ export default function ChatClient({ character }: { character: Character }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && handleSend()}
-            placeholder={`${character.name}에게 메시지 보내기...`}
+            placeholder={fn("sendMessage", locale)(name)}
             className="flex-1 rounded-full px-4 py-2.5 text-sm outline-none transition-colors text-white placeholder-white/40"
             style={{
               background: "rgba(255,255,255,0.06)",
@@ -701,11 +713,31 @@ export default function ChatClient({ character }: { character: Character }) {
               className="text-lg font-bold mb-2 text-white"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              프리미엄 콘텐츠
+              {s("premiumContent", locale)}
             </h2>
-            <p className="text-sm text-white/50 mb-4" style={{ fontFamily: "var(--font-satoshi)" }}>
-              사진을 보려면 프리미엄 구독이 필요해요
+            <p className="text-sm text-white/50 mb-1" style={{ fontFamily: "var(--font-satoshi)" }}>
+              {s("premiumDesc", locale)}
             </p>
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <span className="text-sm text-white/30 line-through">{s("originalPrice", locale)}</span>
+              <span className="text-lg font-bold text-white" style={{ fontFamily: "var(--font-satoshi)" }}>{s("salePrice", locale)}</span>
+              <span
+                className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                style={{ background: "rgba(239,68,68,0.8)", color: "white" }}
+              >
+                65% OFF
+              </span>
+            </div>
+            {countdown > 0 && (
+              <p className="text-xs text-red-400 mb-3" style={{ fontFamily: "var(--font-satoshi)" }}>
+                {s("discountEndsIn", locale)} {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, "0")}
+              </p>
+            )}
+            {countdown <= 0 && (
+              <p className="text-xs text-white/40 mb-3" style={{ fontFamily: "var(--font-satoshi)" }}>
+                {s("discountEndingSoon", locale)}
+              </p>
+            )}
             <button
               onClick={async () => {
                 await handleCheckout();
@@ -718,20 +750,20 @@ export default function ChatClient({ character }: { character: Character }) {
                 fontFamily: "var(--font-satoshi)",
               }}
             >
-              {isStartingCheckout ? "결제 준비 중..." : "잠금 해제 - ₩4,900"}
+              {isStartingCheckout ? s("checkoutLoading", locale) : s("unlock", locale)}
             </button>
             <div
               className="mt-4 pt-4 text-left"
               style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}
             >
               <p className="text-xs text-white/40 mb-2">
-                다른 브라우저나 기기에서는 결제한 이메일로 복원할 수 있어요
+                {s("restoreDesc", locale)}
               </p>
               <input
                 type="email"
                 value={restoreEmail}
                 onChange={(e) => setRestoreEmail(e.target.value)}
-                placeholder="결제에 사용한 이메일"
+                placeholder={s("restoreEmail", locale)}
                 className="w-full rounded-xl px-3 py-2 text-sm outline-none transition-colors text-white placeholder-white/40"
                 style={{
                   background: "rgba(255,255,255,0.06)",
@@ -744,7 +776,7 @@ export default function ChatClient({ character }: { character: Character }) {
                 className="mt-2 w-full py-2.5 rounded-xl text-sm font-medium text-white/70 hover:text-white disabled:opacity-40 transition-colors"
                 style={{ border: "1px solid rgba(255,255,255,0.15)" }}
               >
-                {isRestoring ? "복원 중..." : "구매 복원"}
+                {isRestoring ? s("restoring", locale) : s("restorePurchase", locale)}
               </button>
             </div>
             {premiumMessage && (
@@ -756,7 +788,7 @@ export default function ChatClient({ character }: { character: Character }) {
               onClick={() => setShowPaywall(false)}
               className="mt-3 text-sm text-white/40 hover:text-white/70 transition-colors"
             >
-              나중에 할게
+              {s("maybeLater", locale)}
             </button>
           </div>
         </div>
@@ -765,13 +797,27 @@ export default function ChatClient({ character }: { character: Character }) {
   );
 }
 
-function getGreeting(char: Character): string {
-  const greetings: Record<string, string> = {
-    yuna: "안녕, 내 이름은 유나야. 오늘 밤은 어때?",
-    jia: "안녕~ 나 지아ㅎㅎ 알바 끝나고 쉬는 중이야",
-    sera: "왔구나, 나 세라. 만나서 반가워.",
+function getGreeting(char: Character, locale: "ko" | "en"): string {
+  const greetings: Record<string, { ko: string; en: string }> = {
+    yuna: {
+      ko: "안녕, 내 이름은 유나야. 오늘 밤은 어때?",
+      en: "Hey, I'm Yuna. How's your night going?",
+    },
+    jia: {
+      ko: "안녕~ 나 지아ㅎㅎ 알바 끝나고 쉬는 중이야",
+      en: "Hey~ I'm Jia hh just got off my shift and chilling",
+    },
+    sera: {
+      ko: "왔구나, 나 세라. 만나서 반가워.",
+      en: "Oh, you're here. I'm Sera. Nice to meet you.",
+    },
   };
-  return greetings[char.id] || `안녕~ 나 ${char.name}이야. 같이 얘기하자~`;
+  const g = greetings[char.id];
+  if (g) return g[locale];
+  const name = char.name[locale];
+  return locale === "ko"
+    ? `안녕~ 나 ${name}이야. 같이 얘기하자~`
+    : `Hey~ I'm ${name}. Let's talk~`;
 }
 
 function clearCheckoutParams() {

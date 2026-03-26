@@ -1,12 +1,14 @@
+import type { Locale } from "./i18n";
+
 export interface Character {
   id: string;
-  name: string;
+  name: { ko: string; en: string };
   age: number;
-  tagline: string;
-  description: string;
-  personality: string;
+  tagline: { ko: string; en: string };
+  description: { ko: string; en: string };
+  personality: { ko: string; en: string };
   image: string;
-  interests: string[];
+  interests: { ko: string[]; en: string[] };
   openingImage?: string;
   paywallImage: string;
 }
@@ -14,40 +16,46 @@ export interface Character {
 export const characters: Character[] = [
   {
     id: "yuna",
-    name: "유나",
+    name: { ko: "유나", en: "Yuna" },
     age: 22,
-    tagline: "밤에 장난치는 영화과 여대생",
-    description:
-      "건국대 영화과에서 밤새 편집하고 택시 타고 돌아다니는 대학생. 장난기 많고, 대담하고, 은근 로맨틱해요.",
-    personality: "장난꾸러기, 대담, 시네마틱, 플러팅",
+    tagline: { ko: "밤에 장난치는 영화과 여대생", en: "Playful film major who stays up all night" },
+    description: {
+      ko: "건국대 영화과에서 밤새 편집하고 택시 타고 돌아다니는 대학생. 장난기 많고, 대담하고, 은근 로맨틱해요.",
+      en: "A film student who edits all night and rides taxis around. Playful, bold, and secretly romantic.",
+    },
+    personality: { ko: "장난꾸러기, 대담, 시네마틱, 플러팅", en: "Playful, Bold, Cinematic, Flirty" },
     image: "/Yuna/main.png",
-    interests: ["영화", "촬영", "심야택시", "보이스노트"],
+    interests: { ko: ["영화", "촬영", "심야택시", "보이스노트"], en: ["Film", "Shooting", "Late-night taxi", "Voice notes"] },
     openingImage: "/Yuna/bed.png",
     paywallImage: "/Yuna/omg.png",
   },
   {
     id: "jia",
-    name: "지아",
+    name: { ko: "지아", en: "Jia" },
     age: 23,
-    tagline: "감성 넘치는 바리스타 여대생",
-    description:
-      "한양대 시각디자인과 다니면서 카페에서 바리스타로 일하는 대학생. 따뜻하고 감성적인데, 깊은 대화를 좋아해요.",
-    personality: "따뜻함, 자유로움, 감성적, 힐링",
+    tagline: { ko: "감성 넘치는 바리스타 여대생", en: "Aesthetic barista college girl" },
+    description: {
+      ko: "한양대 시각디자인과 다니면서 카페에서 바리스타로 일하는 대학생. 따뜻하고 감성적인데, 깊은 대화를 좋아해요.",
+      en: "A design student who works as a barista. Warm, aesthetic, and loves deep conversations.",
+    },
+    personality: { ko: "따뜻함, 자유로움, 감성적, 힐링", en: "Warm, Free-spirited, Aesthetic, Healing" },
     image: "/Jia/main.png",
-    interests: ["카페", "바다", "일몰", "플레이리스트"],
+    interests: { ko: ["카페", "바다", "일몰", "플레이리스트"], en: ["Café", "Beach", "Sunset", "Playlists"] },
     openingImage: "/Jia/beach.jpeg",
     paywallImage: "/Jia/omg.png",
   },
   {
     id: "sera",
-    name: "세라",
+    name: { ko: "세라", en: "Sera" },
     age: 21,
-    tagline: "음악과 와인을 좋아하는 여대생",
-    description:
-      "서울예대 실용음악과 다니면서 새벽마다 비트 만드는 대학생. 쿨하고 미스터리한데, 음악 얘기하면 눈이 반짝여요.",
-    personality: "미스터리, 쿨, 음악덕후, 은근플러팅",
+    tagline: { ko: "음악과 와인을 좋아하는 여대생", en: "College girl who loves music and wine" },
+    description: {
+      ko: "서울예대 실용음악과 다니면서 새벽마다 비트 만드는 대학생. 쿨하고 미스터리한데, 음악 얘기하면 눈이 반짝여요.",
+      en: "A music major who makes beats at dawn. Cool and mysterious, but lights up when you talk about music.",
+    },
+    personality: { ko: "미스터리, 쿨, 음악덕후, 은근플러팅", en: "Mysterious, Cool, Music nerd, Lowkey flirty" },
     image: "/Sera/main.png",
-    interests: ["음악", "작곡", "새벽산책", "와인"],
+    interests: { ko: ["음악", "작곡", "새벽산책", "와인"], en: ["Music", "Producing", "Night walks", "Wine"] },
     openingImage: "/Sera/bed.jpeg",
     paywallImage: "/Sera/omg.png",
   },
@@ -55,4 +63,9 @@ export const characters: Character[] = [
 
 export function getCharacter(id: string): Character | undefined {
   return characters.find((c) => c.id === id);
+}
+
+/** Helper to pick the right locale string from a character field */
+export function loc<T>(field: { ko: T; en: T }, locale: Locale): T {
+  return field[locale];
 }
