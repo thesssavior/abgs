@@ -51,6 +51,20 @@ export default function ChatClient({ character }: { character: Character }) {
   const saveMessages = useCallback(
     (msgs: Message[]) => {
       localStorage.setItem(storageKey(character.id), JSON.stringify(msgs));
+
+      // Background save to DB — fire-and-forget, no await
+      const chatSessionId = localStorage.getItem(`chat_session_${character.id}`);
+      if (chatSessionId) {
+        fetch("/api/chat/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: chatSessionId,
+            characterId: character.id,
+            messages: msgs,
+          }),
+        }).catch(() => {});
+      }
     },
     [character.id]
   );
