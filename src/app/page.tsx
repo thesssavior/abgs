@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
+import posthog from "posthog-js";
 import { characters } from "@/lib/characters";
 
 export default function Home() {
@@ -253,6 +254,7 @@ export default function Home() {
             </span>
             <Link
               href={`/chat/${current.id}`}
+              onClick={() => posthog.capture("chat_started", { character_id: current.id, character_name: current.name, source: "mobile" })}
               style={{
                 fontFamily: "var(--font-satoshi), sans-serif",
                 background: "rgba(255,255,255,0.95)",
@@ -509,6 +511,7 @@ export default function Home() {
             </span>
             <Link
               href={`/chat/${current.id}`}
+              onClick={() => posthog.capture("chat_started", { character_id: current.id, character_name: current.name, source: "desktop" })}
               style={{
                 fontFamily: "var(--font-satoshi), sans-serif",
                 background: "rgba(255,255,255,0.95)",
