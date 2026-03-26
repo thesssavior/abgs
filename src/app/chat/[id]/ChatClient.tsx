@@ -293,39 +293,28 @@ export default function ChatClient({ character }: { character: Character }) {
     setIsTyping(true);
 
     try {
-      const ws = wsRef.current;
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        throw new Error("연결이 끊겼어. 잠시 후 다시 보내줘~");
-      }
-
-      const replyText = await new Promise<string>((resolve, reject) => {
-        wsResolverRef.current = resolve;
-        wsRejecterRef.current = reject;
-        ws.send(JSON.stringify({ type: "message", text }));
-        // Timeout
-        setTimeout(() => {
-          if (wsResolverRef.current === resolve) {
-            wsResolverRef.current = null;
-            wsRejecterRef.current = null;
-            reject(new Error("응답이 늦어지고 있어. 다시 보내줘~"));
-          }
-        }, 25_000);
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          characterId: character.id,
+          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          sessionId: localStorage.getItem(`chat_session_${character.id}`) || undefined,
+        }),
       });
+      const data = await res.json();
+      const replyText = data.message || "앗 잠깐 끊겼어ㅠㅠ 다시 보내줘~";
 
       setMessages([
         ...newMessages,
         { role: "assistant", content: replyText },
       ]);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "앗 잠깐 끊겼어ㅠㅠ 다시 보내줘~";
+    } catch {
       setMessages([
         ...newMessages,
         {
           role: "assistant",
-          content: message,
+          content: "앗 잠깐 끊겼어ㅠㅠ 다시 보내줘~",
         },
       ]);
     } finally {

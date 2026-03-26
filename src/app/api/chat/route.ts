@@ -1,11 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCharacter } from "@/lib/characters";
-import { parseChatRequest } from "@/lib/chat-payload";
+import { getCharacterSystemPrompt } from "@/lib/character-prompts";
+import {
+  parseChatRequest,
+  trimChatMessagesForModel,
+  type ChatRequestMessage,
+} from "@/lib/chat-payload";
+import OpenAI from "openai";
 
+// --- Toggle: set USE_OPENAI=1 to use GPT-4o, otherwise use WS worker ---
+const USE_OPENAI = process.env.USE_OPENAI === "1";
+
+// OpenAI config
+let _openai: OpenAI;
+function openai() {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
+
+// WebSocket worker config
 const WS_URL = process.env.THEHACK_SUME_WS_URL || "";
 const WS_TOKEN = process.env.THEHACK_SUME_API_TOKEN || "";
 const PERSONA_PROFILE_ID = process.env.THEHACK_SUME_PERSONA_PROFILE_ID || "lee-seol";
-
 const WS_REPLY_TIMEOUT_MS = 25_000;
 
 export async function POST(req: NextRequest) {
@@ -26,40 +42,92 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "캐릭터를 찾을 수 없어요" }, { status: 404 });
   }
 
-  // Extract the latest user message
+  if (USE_OPENAI) {
+    return handleOpenAI(characterId, messages, character.id);
+  }
+
+  return handleWebSocket(body, characterId, messages, character.id);
+}
+
+// ─── OpenAI path ───────────────────────────────────────────────────────
+
+async function handleOpenAI(
+  characterId: string,
+  messages: ChatRequestMessage[],
+  charId: string,
+) {
+  const modelMessages = trimChatMessagesForModel(messages);
+  const systemPrompt = getCharacterSystemPrompt(characterId);
+
+  if (!systemPrompt) {
+    return NextResponse.json({ error: "캐릭터 설정을 찾을 수 없어요" }, { status: 500 });
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json({
+      message: getFallbackResponse(charId, modelMessages.length),
+    });
+  }
+
+  try {
+    const completion = await openai().chat.completions.create({
+      model: "gpt-4o",
+      max_tokens: 256,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...modelMessages,
+      ],
+    });
+
+    const text = completion.choices[0]?.message?.content;
+    if (text) {
+      return NextResponse.json({ message: text });
+    }
+
+    return NextResponse.json({
+      message: getFallbackResponse(charId, modelMessages.length),
+    });
+  } catch {
+    return NextResponse.json({
+      message: getFallbackResponse(charId, modelMessages.length),
+    });
+  }
+}
+
+// ─── WebSocket worker path ─────────────────────────────────────────────
+
+async function handleWebSocket(
+  body: unknown,
+  characterId: string,
+  messages: ChatRequestMessage[],
+  charId: string,
+) {
   const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUserMessage) {
     return NextResponse.json({ error: "메시지가 없어요" }, { status: 400 });
   }
 
-  // Session ID from client (localStorage-based) or fallback
-  const clientSessionId = typeof (body as Record<string, unknown>)?.sessionId === "string"
-    ? ((body as Record<string, unknown>).sessionId as string).trim()
-    : "";
+  const clientSessionId =
+    typeof (body as Record<string, unknown>)?.sessionId === "string"
+      ? ((body as Record<string, unknown>).sessionId as string).trim()
+      : "";
   const sessionId = clientSessionId || `abgs:${characterId}:anon`;
 
   if (!WS_URL || !WS_TOKEN) {
     return NextResponse.json({
-      message: getFallbackResponse(character.id, messages.length),
-      _debug: {
-        hasWsUrl: !!WS_URL,
-        hasToken: !!WS_TOKEN,
-        wsUrlLen: WS_URL.length,
-        tokenLen: WS_TOKEN.length,
-      },
+      message: getFallbackResponse(charId, messages.length),
     });
   }
 
   try {
     let reply = await sendViaWebSocket(sessionId, lastUserMessage.content);
-    // Worker tool loop can timeout on cold DO — retry once
     if (reply.includes("could not finish tool processing")) {
       reply = await sendViaWebSocket(sessionId, lastUserMessage.content);
     }
     return NextResponse.json({ message: reply });
   } catch {
     return NextResponse.json({
-      message: getFallbackResponse(character.id, messages.length),
+      message: getFallbackResponse(charId, messages.length),
     });
   }
 }
@@ -98,7 +166,6 @@ async function sendViaWebSocket(sessionId: string, text: string): Promise<string
           ws.close();
           reject(new Error(data.message || data.code || "ws_error"));
         }
-        // typing events are ignored — we just wait for reply
       } catch {
         // ignore parse errors on intermediate messages
       }
@@ -111,10 +178,11 @@ async function sendViaWebSocket(sessionId: string, text: string): Promise<string
 
     ws.addEventListener("close", () => {
       clearTimeout(timer);
-      // If we haven't resolved yet, it's an error
     });
   });
 }
+
+// ─── Fallback responses ────────────────────────────────────────────────
 
 function getFallbackResponse(charId: string, msgCount: number): string {
   const responses: Record<string, string[]> = {
